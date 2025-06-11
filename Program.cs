@@ -4,29 +4,37 @@ using PeopleLibraryApp.Models;
 using PeopleLibraryApp.Services;
 using System;
 using System.Collections.Generic;
-using System.IO; // ← Для File.ReadAllText
+using System.IO;
+using System.Linq;
+
+string peopleFilePath = @"people.txt";
+string peopleOutputPath = @"output.txt";
+
+string booksFilePath = @"books.txt";
+string booksOutputPath = @"books_output.txt";
 
 var services = new ServiceCollection();
 
-string filePath = @"people.txt";
-string outputPath = @"output.txt";
-
-// Реєстрація сервісів
 services.AddSingleton<ISeparatorDetector, SeparatorDetector>();
-services.AddSingleton<IPersonWriter>(provider => new FilePersonWriter(outputPath));
+services.AddSingleton<IPersonWriter>(provider => new FilePersonWriter(peopleOutputPath));
 services.AddSingleton<IPersonReader>(provider =>
 {
     var detector = provider.GetRequiredService<ISeparatorDetector>();
-    return new FilePersonReader(filePath, detector);
+    return new FilePersonReader(peopleFilePath, detector);
 });
 
+services.AddSingleton<IOutputService, ConsoleOutputService>();
+services.AddSingleton<BookService>();
+services.AddSingleton(provider => new BookFileLoader(booksFilePath));
+
 var provider = services.BuildServiceProvider();
+
 var reader = provider.GetRequiredService<IPersonReader>();
 var writer = provider.GetRequiredService<IPersonWriter>();
 
 List<Person> people = reader.ReadPeople();
 
-Console.WriteLine("people:\n");
+Console.WriteLine("People:\n");
 
 foreach (var person in people)
 {
@@ -34,6 +42,22 @@ foreach (var person in people)
     writer.WritePerson(person);
 }
 
-Console.WriteLine($"\n{outputPath}.");
-Console.WriteLine($"\n{outputPath}:\n");
-Console.WriteLine(File.ReadAllText(outputPath));
+Console.WriteLine($"\n{peopleOutputPath}.");
+Console.WriteLine($"\n{peopleOutputPath}:\n");
+Console.WriteLine(File.ReadAllText(peopleOutputPath));
+
+var bookLoader = provider.GetRequiredService<BookFileLoader>();
+var books = bookLoader.LoadBooks().ToList();
+
+var bookService = provider.GetRequiredService<BookService>();
+
+Console.WriteLine("\nBooks:\n");
+bookService.PrintBooks(books);
+
+var fileBookOutput = new FileOutputService(booksOutputPath);
+var fileBookService = new BookService(fileBookOutput);
+fileBookService.PrintBooks(books);
+
+Console.WriteLine($"\n{booksOutputPath}.");
+Console.WriteLine($"\n{booksOutputPath}:\n");
+Console.WriteLine(File.ReadAllText(booksOutputPath));
